@@ -57,6 +57,96 @@ headers:
 	}
 }
 
+func TestEventURLIsPresent(t *testing.T) {
+	in := `{}`
+	var cfg EventConfig
+	err := yaml.UnmarshalStrict([]byte(in), &cfg)
+
+	expected := "missing URL in event config"
+
+	if err == nil {
+		t.Fatalf("no error returned, expected:\n%v", expected)
+	}
+	if err.Error() != expected {
+		t.Errorf("\nexpected:\n%v\ngot:\n%v", expected, err.Error())
+	}
+}
+
+func TestEventSourceIsPresent(t *testing.T) {
+	in := `
+url: 'http://example.com'
+http_config:
+  bearer_token: foo
+`
+	var cfg EventConfig
+	err := yaml.UnmarshalStrict([]byte(in), &cfg)
+
+	expected := "missing source in event config"
+
+	if err == nil {
+		t.Fatalf("no error returned, expected:\n%v", expected)
+	}
+	if err.Error() != expected {
+		t.Errorf("\nexpected:\n%v\ngot:\n%v", expected, err.Error())
+	}
+}
+
+func TestEventHttpConfigIsValid(t *testing.T) {
+	in := `
+url: 'http://example.com'
+http_config:
+  bearer_token: foo
+  bearer_token_file: /tmp/bar
+`
+	var cfg EventConfig
+	err := yaml.UnmarshalStrict([]byte(in), &cfg)
+
+	expected := "at most one of bearer_token & bearer_token_file must be configured"
+
+	if err == nil {
+		t.Fatalf("no error returned, expected:\n%v", expected)
+	}
+	if err.Error() != expected {
+		t.Errorf("\nexpected:\n%v\ngot:\n%v", expected, err.Error())
+	}
+}
+
+func TestEventHttpConfigIsOptional(t *testing.T) {
+	in := `
+url: 'http://example.com'
+`
+	var cfg EventConfig
+	err := yaml.UnmarshalStrict([]byte(in), &cfg)
+
+	if err != nil {
+		t.Fatalf("no error expected, returned:\n%v", err.Error())
+	}
+}
+
+func TestEventPasswordIsObfuscated(t *testing.T) {
+	in := `
+url: 'http://example.com'
+http_config:
+  basic_auth:
+    username: foo
+    password: supersecret
+`
+	var cfg EventConfig
+	err := yaml.UnmarshalStrict([]byte(in), &cfg)
+
+	if err != nil {
+		t.Fatalf("no error expected, returned:\n%v", err.Error())
+	}
+
+	ycfg, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("no error expected, returned:\n%v", err.Error())
+	}
+	if strings.Contains(string(ycfg), "supersecret") {
+		t.Errorf("Found password in the YAML cfg: %s\n", ycfg)
+	}
+}
+
 func TestPagerdutyRoutingKeyIsPresent(t *testing.T) {
 	in := `
 routing_key: ''

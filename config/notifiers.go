@@ -44,6 +44,14 @@ var (
 	// DefaultEmailSubject defines the default Subject header of an Email.
 	DefaultEmailSubject = `{{ template "email.default.subject" . }}`
 
+	// DefaultEventConfig defines default values for Event configurations.
+	DefaultEventConfig = EventConfig{
+		HTTPConfig: &commoncfg.HTTPClientConfig{FollowRedirects: true}, //TODO: aserhat - not sure why I have to set this
+		NotifierConfig: NotifierConfig{
+			VSendResolved: true,
+		},
+	}
+
 	// DefaultPagerdutyDetails defines the default values for PagerDuty details.
 	DefaultPagerdutyDetails = map[string]string{
 		"firing":       `{{ template "pagerduty.default.instances" .Alerts.Firing }}`,
@@ -197,6 +205,40 @@ func (c *EmailConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	c.Headers = normalizedHeaders
 
+	return nil
+}
+
+// EventConfig configures notifications via a cloud event.
+type EventConfig struct {
+	NotifierConfig `yaml:",inline" json:",inline"`
+
+	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
+	// Source sets a property on outgoing events.
+	Source string `yaml:"source" json:"source"`
+	// URL to send POST request to.
+	URL *URL `yaml:"url" json:"url"`
+	// MaxAlerts is the maximum number of alerts to be sent per webhook message.
+	// Alerts exceeding this threshold will be truncated. Setting this to 0
+	// allows an unlimited number of alerts.
+	MaxAlerts uint64 `yaml:"max_alerts" json:"max_alerts"`
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *EventConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultEventConfig
+	type plain EventConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	if c.URL == nil {
+		return fmt.Errorf("missing URL in event config")
+	}
+	if c.Source == "" {
+		return fmt.Errorf("missing source in event config")
+	}
+	if c.URL.Scheme != "https" && c.URL.Scheme != "http" {
+		return fmt.Errorf("scheme required for event url")
+	}
 	return nil
 }
 
